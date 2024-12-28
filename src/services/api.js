@@ -1,5 +1,5 @@
 // src/services/api.js
-const API_BASE_URL = 'https://abdoabudeif.runasp.net//api';
+const API_BASE_URL = 'https://abdoabudeif.runasp.net/api';
 
 
 const getAuthHeaders = () => {
