@@ -151,10 +151,7 @@ const ViewModal = ({ patient, onClose }) => {
                                                 <tr>
                                                     <th colspan="2">${type}</th>
                                                 </tr>
-                                                <tr>
-                                                    <th>Test Type</th>
-                                                    <th>Result</th>
-                                                </tr>
+                                                
                                             </thead>
                                             <tbody>
                                                 ${analyses.map(analysis => `
