@@ -187,32 +187,45 @@ const ScannerPage = () => {
                             Use camera to scan barcode or enter ID manually
                         </p>
 
-                        {/* Camera View */}
+                        {/* Camerra View */}
                         {isCameraOpen && (
                             <div className="w-full mb-6">
                                 <div className="relative aspect-video rounded-lg overflow-hidden border-2 border-blue-500">
+                                    {/* Video Element */}
                                     <video
                                         ref={videoRef}
                                         className="w-full h-full object-cover"
                                         autoPlay
                                         playsInline
+                                        muted
                                     />
-                                    <div className="absolute inset-0">
-                                        {/* Scanning guide lines */}
-                                        <div className="absolute top-0 bottom-0 left-1/4 right-1/4 border-2 border-red-500 border-opacity-50">
-                                            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 bg-opacity-50"></div>
+
+                                    {/* Scanning Overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        {/* Dark overlay outside scanning area */}
+                                        <div className="absolute inset-0 bg-black bg-opacity-50">
+                                            {/* Clear scanning window */}
+                                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5 h-32 border-2 border-white">
+                                                {/* Corner markers */}
+                                                <div className="absolute top-0 left-0 w-4 h-4 border-l-2 border-t-2 border-red-500"></div>
+                                                <div className="absolute top-0 right-0 w-4 h-4 border-r-2 border-t-2 border-red-500"></div>
+                                                <div className="absolute bottom-0 left-0 w-4 h-4 border-l-2 border-b-2 border-red-500"></div>
+                                                <div className="absolute bottom-0 right-0 w-4 h-4 border-r-2 border-b-2 border-red-500"></div>
+
+                                                {/* Scanning line */}
+                                                {isScanning && (
+                                                    <div
+                                                        className="absolute left-0 w-full h-0.5 bg-red-500 animate-scan"
+                                                        style={{
+                                                            animation: 'scan 2s linear infinite',
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                         </div>
-                                        {/* Scanning animation */}
-                                        {isScanning && (
-                                            <div
-                                                className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-red-500 animate-scan"
-                                                style={{
-                                                    animation: 'scan 2s linear infinite',
-                                                }}
-                                            />
-                                        )}
                                     </div>
                                 </div>
+
                                 <button
                                     onClick={handleCameraToggle}
                                     className="w-full mt-4 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
@@ -221,7 +234,6 @@ const ScannerPage = () => {
                                 </button>
                             </div>
                         )}
-
                         {/* Camera Button */}
                         {!isCameraOpen && (
                             <button
