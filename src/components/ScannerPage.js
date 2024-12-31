@@ -10,22 +10,10 @@ const ScannerPage = () => {
     const [searchValue, setSearchValue] = useState('');
     const [error, setError] = useState('');
     const [isCameraOpen, setIsCameraOpen] = useState(false);
-
     const [isScanning, setIsScanning] = useState(false);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const codeReaderRef = useRef(null);
-
-    // Initialize barcode reader
-    useEffect(() => {
-        codeReaderRef.current = new BrowserMultiFormatReader();
-
-        return () => {
-            if (codeReaderRef.current) {
-                codeReaderRef.current.reset();
-            }
-        };
-    }, []);
 
     // Handle manual input Enter key
     const handleKeyDown = (e) => {
@@ -50,91 +38,87 @@ const ScannerPage = () => {
         }
     };
 
-    // Check for camera permissions
-    const checkCameraPermission = async () => {
+    // Start camera
+    const startCamera = async () => {
         try {
-            const result = await navigator.permissions.query({ name: 'camera' });
+            const constraints = {
+                video: { facingMode: "environment" }
+            };
 
-            return result.state;
-        } catch (error) {
-            console.error('Error checking camera permission:', error);
-            return 'prompt';
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                streamRef.current = stream;
+                setIsCameraOpen(true);
+                // Start barcode detection after camera is ready
+                await initBarcodeDetection();
+            }
+        } catch (err) {
+            console.error('Error accessing camera:', err);
+            // Try fallback to any camera
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    streamRef.current = stream;
+                    setIsCameraOpen(true);
+                    await initBarcodeDetection();
+                }
+            } catch (fallbackErr) {
+                console.error('Fallback camera error:', fallbackErr);
+                setError('Unable to access camera. Please check permissions and try again.');
+            }
         }
     };
 
-    // Get preferred camera (try to use back camera first)
-    const getPreferredCamera = async () => {
+    // Initialize barcode detection
+    const initBarcodeDetection = async () => {
         try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const cameras = devices.filter(device => device.kind === 'videoinput');
+            if (!codeReaderRef.current) {
+                codeReaderRef.current = new BrowserMultiFormatReader();
+            }
 
-            // Try to find back camera
-            const backCamera = cameras.find(camera =>
-                camera.label.toLowerCase().includes('back') ||
-                camera.label.toLowerCase().includes('rear')
-            );
+            // Wait for video to be ready
+            await new Promise((resolve) => {
+                videoRef.current.onloadedmetadata = () => {
+                    resolve();
+                };
+            });
 
-            return backCamera ? backCamera.deviceId : undefined;
-        } catch (error) {
-            console.error('Error getting cameras:', error);
-            return undefined;
-        }
-    };
-
-    // Start barcode detection
-    const startBarcodeDetection = async () => {
-        if (!videoRef.current || !codeReaderRef.current) return;
-
-        try {
             setIsScanning(true);
-            const deviceId = await getPreferredCamera();
 
-            codeReaderRef.current.decodeFromVideoDevice(
-                deviceId,
+            codeReaderRef.current.decodeFromVideoElement(
                 videoRef.current,
-                (result, err) => {
+                (result) => {
                     if (result) {
-                        // Successfully decoded barcode
+                        // Barcode detected
                         const scannedValue = result.getText();
                         console.log('Barcode detected:', scannedValue);
 
-                        // Play success sound (optional)
-                        const audio = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAA5TEFNRTMuOTlyAc0AAAAAAAAAABSAJAOkQgAAgAAABoZuZBwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQxAAAElTlJnQ3gAJ6vG0DGjQAQAFASA0GmRAEAIAgBgGATB8HwfB8Xg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
-                        audio.play();
+                        // Play success sound
+                        playSuccessSound();
 
-                        // Stop scanning and navigate
-                        stopCamera();
+                        // Navigate to results
                         handleSearch(scannedValue);
+                        stopCamera();
                     }
-                    if (err && !(err instanceof TypeError)) {
-                        // Ignore TypeError as it's thrown when no barcode is found
-                        console.error('Barcode detection error:', err);
+                },
+                (error) => {
+                    if (error && !(error instanceof TypeError)) {
+                        console.error('Barcode scanning error:', error);
                     }
                 }
             );
         } catch (error) {
-            console.error('Error starting barcode detection:', error);
-            setError('Failed to start barcode scanner');
+            console.error('Error initializing barcode detection:', error);
+            setError('Failed to start barcode scanner. Please try again.');
         }
     };
 
-    // Camera handling
-    const startCamera = async () => {
-        try {
-            const permissionStatus = await checkCameraPermission();
-
-            if (permissionStatus === 'denied') {
-                setError('Camera access denied. Please enable camera permissions in your browser settings.');
-                return;
-            }
-
-            setIsCameraOpen(true);
-            await startBarcodeDetection();
-
-        } catch (err) {
-            console.error('Error accessing camera:', err);
-            setError('Unable to access camera. Please ensure you have granted camera permissions.');
-        }
+    const playSuccessSound = () => {
+        const audio = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAA5TEFNRTMuOTlyAc0AAAAAAAAAABSAJAOkQgAAgAAABoZuZBwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQxAAAElTlJnQ3gAJ6vG0DGjQAQAFASA0GmRAEAIAgBgGATB8HwfB8Xg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+        audio.play().catch(e => console.log('Audio play error:', e));
     };
 
     const stopCamera = () => {
@@ -143,11 +127,14 @@ const ScannerPage = () => {
 
         if (codeReaderRef.current) {
             codeReaderRef.current.reset();
+            codeReaderRef.current = null;
         }
 
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
         }
+
         if (videoRef.current) {
             videoRef.current.srcObject = null;
         }
@@ -218,7 +205,7 @@ const ScannerPage = () => {
                                         {/* Scanning animation */}
                                         {isScanning && (
                                             <div
-                                                className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-red-500"
+                                                className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-red-500 animate-scan"
                                                 style={{
                                                     animation: 'scan 2s linear infinite',
                                                 }}
