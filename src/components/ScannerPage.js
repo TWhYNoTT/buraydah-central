@@ -9,13 +9,15 @@ const ScannerPage = () => {
     const [searchValue, setSearchValue] = useState('');
     const [error, setError] = useState('');
     const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [hasPermission, setHasPermission] = useState(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
+    const canvasRef = useRef(null);
 
     // Handle manual input Enter key
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
-            e.preventDefault(); // Prevent default form submission
+            e.preventDefault();
             handleSearch(searchValue);
         }
     };
@@ -29,24 +31,62 @@ const ScannerPage = () => {
         }
 
         try {
-            // You might want to validate the ID exists before navigating
-            // const response = await validatePatientId(searchId);
             navigate(`/test-results/${searchId}`);
         } catch (err) {
             setError('Invalid patient ID');
         }
     };
 
+    // Check for camera permissions
+    const checkCameraPermission = async () => {
+        try {
+            const result = await navigator.permissions.query({ name: 'camera' });
+            setHasPermission(result.state === 'granted');
+            return result.state;
+        } catch (error) {
+            console.error('Error checking camera permission:', error);
+            return 'prompt';
+        }
+    };
+
     // Camera handling
     const startCamera = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' } // Use back camera if available
-            });
+            const permissionStatus = await checkCameraPermission();
 
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                streamRef.current = stream;
+            if (permissionStatus === 'denied') {
+                setError('Camera access denied. Please enable camera permissions in your browser settings.');
+                return;
+            }
+
+            const constraints = {
+                video: {
+                    facingMode: { exact: "environment" }, // Force back camera
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    streamRef.current = stream;
+                    setIsCameraOpen(true);
+                    startBarcodeDetection();
+                }
+            } catch (err) {
+                // If back camera fails, try any available camera
+                console.log('Falling back to any available camera');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: true
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    streamRef.current = stream;
+                    setIsCameraOpen(true);
+                    startBarcodeDetection();
+                }
             }
         } catch (err) {
             console.error('Error accessing camera:', err);
@@ -64,12 +104,41 @@ const ScannerPage = () => {
         setIsCameraOpen(false);
     };
 
+    // Handle barcode detection
+    const startBarcodeDetection = () => {
+        if (!canvasRef.current || !videoRef.current) return;
+
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        const video = videoRef.current;
+
+        const detect = () => {
+            if (videoRef.current && videoRef.current.readyState === 4) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0);
+
+                // Get the image data for processing
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                // Here you would process the image data for barcode detection
+                // When a barcode is detected, call handleSearch with the value
+            }
+
+            if (isCameraOpen) {
+                requestAnimationFrame(detect);
+            }
+        };
+
+        video.addEventListener('loadedmetadata', () => {
+            detect();
+        });
+    };
+
     // Toggle camera
     const handleCameraToggle = async () => {
         if (isCameraOpen) {
             stopCamera();
         } else {
-            setIsCameraOpen(true);
             await startCamera();
         }
     };
@@ -91,7 +160,7 @@ const ScannerPage = () => {
                             <h1 className="text-2xl font-bold text-gray-800">Buraidah Central Hospital</h1>
                             <p className="text-gray-600">Patient Results Scanner</p>
                         </div>
-                        <div className="flex items-center gap-4 flex-wrap justify-center">
+                        <div className="flex items-center gap-4">
                             <img src={hospitalLogo} alt="Hospital Logo" className="h-16" />
                             <img src={qlimgsrc} alt="QL Logo" className="h-16" />
                         </div>
@@ -106,11 +175,14 @@ const ScannerPage = () => {
                         </div>
 
                         <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                            Enter Patient ID
+                            Scan Patient Barcode
                         </h2>
                         <p className="text-gray-600 text-center mb-8">
-                            Enter the patient ID manually or use the camera
+                            Use camera to scan barcode or enter ID manually
                         </p>
+
+                        {/* Hidden Canvas for Image Processing */}
+                        <canvas ref={canvasRef} style={{ display: 'none' }} />
 
                         {/* Camera View */}
                         {isCameraOpen && (
@@ -122,6 +194,9 @@ const ScannerPage = () => {
                                         autoPlay
                                         playsInline
                                     />
+                                    <div className="absolute inset-0 border-2 border-red-500 border-opacity-50">
+                                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 bg-opacity-50"></div>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={handleCameraToggle}
@@ -179,9 +254,10 @@ const ScannerPage = () => {
                         <div className="mt-8 w-full bg-gray-50 rounded-lg p-4">
                             <h3 className="font-medium text-gray-700 mb-2">Instructions:</h3>
                             <ul className="text-sm text-gray-600 space-y-2">
-                                <li>1. Enter the patient ID in the search box</li>
-                                <li>2. Or click "Open Camera" to use device camera</li>
-                                <li>3. Press Enter or click Search to view results</li>
+                                <li>1. Click "Open Camera" to scan barcode</li>
+                                <li>2. Hold the barcode within the scanning area</li>
+                                <li>3. Or manually enter the patient ID</li>
+                                <li>4. Press Enter or click Search to view results</li>
                             </ul>
                         </div>
                     </div>
