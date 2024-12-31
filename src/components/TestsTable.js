@@ -1,3 +1,4 @@
+// PatientsTable.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -127,6 +128,15 @@ const PatientsTable = () => {
                             margin: 5px 0;
                             color: #4a5568;
                         }
+                        @media print {
+                            .barcode-container {
+                                border: none;
+                                padding: 0;
+                            }
+                            .patient-info {
+                                margin-top: 15px;
+                            }
+                        }
                     </style>
                 </head>
                 <body>
@@ -153,28 +163,28 @@ const PatientsTable = () => {
     };
 
     const BarcodeModal = ({ patient, onClose }) => (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">Patient Barcode</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-lg">
+                <div className="flex justify-between items-center p-4 sm:p-6">
+                    <h3 className="text-base sm:text-lg font-semibold">Patient Barcode</h3>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-                <div className="flex justify-center" id="barcode-for-print">
+                <div className="flex justify-center px-4 pb-4" id="barcode-for-print">
                     <Barcode value={patient.Id.toString()} />
                 </div>
-                <div className="mt-4 flex justify-between">
+                <div className="p-4 flex flex-col sm:flex-row justify-between gap-3">
                     <button
                         onClick={handlePrint}
-                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full sm:w-auto"
                     >
                         <Printer className="w-4 h-4 mr-2" />
                         Print Barcode
                     </button>
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                        className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 w-full sm:w-auto"
                     >
                         Close
                     </button>
@@ -184,29 +194,29 @@ const PatientsTable = () => {
     );
 
     const DeleteConfirmationModal = ({ patient, onClose, onConfirm }) => (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">Confirm Deletion</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-md">
+                <div className="flex justify-between items-center p-4 sm:p-6">
+                    <h3 className="text-base sm:text-lg font-semibold">Confirm Deletion</h3>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-                <div className="mb-6">
+                <div className="px-4 sm:px-6 pb-4 sm:pb-6">
                     <p className="text-gray-600">Are you sure you want to delete the patient:</p>
                     <p className="font-medium mt-2">{patient.Name}</p>
                     <p className="text-sm text-gray-500">ID: {patient.Id}</p>
                 </div>
-                <div className="flex justify-end space-x-3">
+                <div className="p-4 sm:p-6 flex flex-col sm:flex-row justify-end gap-3">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 w-full sm:w-auto"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={() => onConfirm(patient.Id)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 w-full sm:w-auto"
                     >
                         Delete
                     </button>
@@ -217,13 +227,13 @@ const PatientsTable = () => {
 
     return (
         <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-semibold text-gray-800">Patients Management</h2>
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Patients Management</h2>
                 </div>
 
-                <div className="mt-4 flex gap-4">
-                    <div className="flex-1 relative">
+                <div className="mt-4">
+                    <div className="relative">
                         <input
                             type="text"
                             placeholder="Search by Patient ID or Name..."
@@ -237,101 +247,105 @@ const PatientsTable = () => {
             </div>
 
             <div className="overflow-x-auto">
-                <table className="w-full">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                ID
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Name
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Gender
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Age
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Unique Number
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Created Date
-                            </th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {loading ? (
+                <div className="inline-block min-w-full align-middle">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
                             <tr>
-                                <td colSpan="7" className="text-center py-4">Loading...</td>
+                                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ID
+                                </th>
+                                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Name
+                                </th>
+                                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Gender
+                                </th>
+                                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Age
+                                </th>
+                                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Unique Number
+                                </th>
+                                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Created Date
+                                </th>
+                                <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions
+                                </th>
                             </tr>
-                        ) : filteredPatients.map((patient) => (
-                            <tr key={patient.Id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    {patient.Id}
-                                </td>
-                                <td className="px-6 py-4">
-                                    {patient.Name}
-                                </td>
-                                <td className="px-6 py-4">
-                                    {patient.Gender}
-                                </td>
-                                <td className="px-6 py-4">
-                                    {patient.Age}
-                                </td>
-                                <td className="px-6 py-4">
-                                    {patient.UniqNumber}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    {new Date(patient.CreatedTime).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-4 text-center space-x-2">
-                                    <button
-                                        onClick={() => {
-                                            setSelectedPatient(patient);
-                                            setShowBarcode(true);
-                                        }}
-                                        className="text-blue-600 hover:text-blue-800"
-                                        title="Generate Barcode"
-                                    >
-                                        <ScanLine className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleView(patient)}
-                                        className="text-purple-600 hover:text-purple-800"
-                                        title="View Details"
-                                    >
-                                        <Eye className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleEdit(patient.Id)}
-                                        className="text-green-600 hover:text-green-800"
-                                        title="Edit Patient"
-                                    >
-                                        <Edit className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setPatientToDelete(patient);
-                                            setShowDeleteModal(true);
-                                        }}
-                                        className="text-red-600 hover:text-red-800"
-                                        title="Delete Patient"
-                                    >
-                                        <Trash className="w-5 h-5" />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="7" className="text-center py-4">Loading...</td>
+                                </tr>
+                            ) : filteredPatients.map((patient) => (
+                                <tr key={patient.Id} className="hover:bg-gray-50">
+                                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
+                                        {patient.Id}
+                                    </td>
+                                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
+                                        {patient.Name}
+                                    </td>
+                                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
+                                        {patient.Gender}
+                                    </td>
+                                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
+                                        {patient.Age}
+                                    </td>
+                                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
+                                        {patient.UniqNumber}
+                                    </td>
+                                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
+                                        {new Date(patient.CreatedTime).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
+                                        <div className="flex justify-center items-center space-x-2">
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedPatient(patient);
+                                                    setShowBarcode(true);
+                                                }}
+                                                className="text-blue-600 hover:text-blue-800"
+                                                title="Generate Barcode"
+                                            >
+                                                <ScanLine className="w-4 h-4 sm:w-5 sm:h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleView(patient)}
+                                                className="text-purple-600 hover:text-purple-800"
+                                                title="View Details"
+                                            >
+                                                <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleEdit(patient.Id)}
+                                                className="text-green-600 hover:text-green-800"
+                                                title="Edit Patient"
+                                            >
+                                                <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setPatientToDelete(patient);
+                                                    setShowDeleteModal(true);
+                                                }}
+                                                className="text-red-600 hover:text-red-800"
+                                                title="Delete Patient"
+                                            >
+                                                <Trash className="w-4 h-4 sm:w-5 sm:h-5" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {error && (
-                <div className="p-4 text-red-500 text-center">
+                <div className="p-4 text-red-500 text-center text-sm">
                     {error}
                 </div>
             )}
