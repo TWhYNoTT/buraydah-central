@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, AlertCircle, ScanLine, Camera } from 'lucide-react';
+import { BrowserMultiFormatReader } from '@zxing/library';
 import hospitalLogo from '../assets/bch.jpeg';
 import qlimgsrc from '../assets/ql.jpeg';
 
@@ -9,10 +10,22 @@ const ScannerPage = () => {
     const [searchValue, setSearchValue] = useState('');
     const [error, setError] = useState('');
     const [isCameraOpen, setIsCameraOpen] = useState(false);
-    const [hasPermission, setHasPermission] = useState(null);
+
+    const [isScanning, setIsScanning] = useState(false);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
-    const canvasRef = useRef(null);
+    const codeReaderRef = useRef(null);
+
+    // Initialize barcode reader
+    useEffect(() => {
+        codeReaderRef.current = new BrowserMultiFormatReader();
+
+        return () => {
+            if (codeReaderRef.current) {
+                codeReaderRef.current.reset();
+            }
+        };
+    }, []);
 
     // Handle manual input Enter key
     const handleKeyDown = (e) => {
@@ -41,11 +54,67 @@ const ScannerPage = () => {
     const checkCameraPermission = async () => {
         try {
             const result = await navigator.permissions.query({ name: 'camera' });
-            setHasPermission(result.state === 'granted');
+
             return result.state;
         } catch (error) {
             console.error('Error checking camera permission:', error);
             return 'prompt';
+        }
+    };
+
+    // Get preferred camera (try to use back camera first)
+    const getPreferredCamera = async () => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cameras = devices.filter(device => device.kind === 'videoinput');
+
+            // Try to find back camera
+            const backCamera = cameras.find(camera =>
+                camera.label.toLowerCase().includes('back') ||
+                camera.label.toLowerCase().includes('rear')
+            );
+
+            return backCamera ? backCamera.deviceId : undefined;
+        } catch (error) {
+            console.error('Error getting cameras:', error);
+            return undefined;
+        }
+    };
+
+    // Start barcode detection
+    const startBarcodeDetection = async () => {
+        if (!videoRef.current || !codeReaderRef.current) return;
+
+        try {
+            setIsScanning(true);
+            const deviceId = await getPreferredCamera();
+
+            codeReaderRef.current.decodeFromVideoDevice(
+                deviceId,
+                videoRef.current,
+                (result, err) => {
+                    if (result) {
+                        // Successfully decoded barcode
+                        const scannedValue = result.getText();
+                        console.log('Barcode detected:', scannedValue);
+
+                        // Play success sound (optional)
+                        const audio = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAA5TEFNRTMuOTlyAc0AAAAAAAAAABSAJAOkQgAAgAAABoZuZBwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQxAAAElTlJnQ3gAJ6vG0DGjQAQAFASA0GmRAEAIAgBgGATB8HwfB8Xg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+                        audio.play();
+
+                        // Stop scanning and navigate
+                        stopCamera();
+                        handleSearch(scannedValue);
+                    }
+                    if (err && !(err instanceof TypeError)) {
+                        // Ignore TypeError as it's thrown when no barcode is found
+                        console.error('Barcode detection error:', err);
+                    }
+                }
+            );
+        } catch (error) {
+            console.error('Error starting barcode detection:', error);
+            setError('Failed to start barcode scanner');
         }
     };
 
@@ -59,35 +128,9 @@ const ScannerPage = () => {
                 return;
             }
 
-            const constraints = {
-                video: {
-                    facingMode: { exact: "environment" }, // Force back camera
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            };
+            setIsCameraOpen(true);
+            await startBarcodeDetection();
 
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    streamRef.current = stream;
-                    setIsCameraOpen(true);
-                    startBarcodeDetection();
-                }
-            } catch (err) {
-                // If back camera fails, try any available camera
-                console.log('Falling back to any available camera');
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true
-                });
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    streamRef.current = stream;
-                    setIsCameraOpen(true);
-                    startBarcodeDetection();
-                }
-            }
         } catch (err) {
             console.error('Error accessing camera:', err);
             setError('Unable to access camera. Please ensure you have granted camera permissions.');
@@ -95,43 +138,19 @@ const ScannerPage = () => {
     };
 
     const stopCamera = () => {
+        setIsCameraOpen(false);
+        setIsScanning(false);
+
+        if (codeReaderRef.current) {
+            codeReaderRef.current.reset();
+        }
+
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
         }
         if (videoRef.current) {
             videoRef.current.srcObject = null;
         }
-        setIsCameraOpen(false);
-    };
-
-    // Handle barcode detection
-    const startBarcodeDetection = () => {
-        if (!canvasRef.current || !videoRef.current) return;
-
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        const video = videoRef.current;
-
-        const detect = () => {
-            if (videoRef.current && videoRef.current.readyState === 4) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
-
-                // Get the image data for processing
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                // Here you would process the image data for barcode detection
-                // When a barcode is detected, call handleSearch with the value
-            }
-
-            if (isCameraOpen) {
-                requestAnimationFrame(detect);
-            }
-        };
-
-        video.addEventListener('loadedmetadata', () => {
-            detect();
-        });
     };
 
     // Toggle camera
@@ -181,9 +200,6 @@ const ScannerPage = () => {
                             Use camera to scan barcode or enter ID manually
                         </p>
 
-                        {/* Hidden Canvas for Image Processing */}
-                        <canvas ref={canvasRef} style={{ display: 'none' }} />
-
                         {/* Camera View */}
                         {isCameraOpen && (
                             <div className="w-full mb-6">
@@ -194,8 +210,20 @@ const ScannerPage = () => {
                                         autoPlay
                                         playsInline
                                     />
-                                    <div className="absolute inset-0 border-2 border-red-500 border-opacity-50">
-                                        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 bg-opacity-50"></div>
+                                    <div className="absolute inset-0">
+                                        {/* Scanning guide lines */}
+                                        <div className="absolute top-0 bottom-0 left-1/4 right-1/4 border-2 border-red-500 border-opacity-50">
+                                            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 bg-opacity-50"></div>
+                                        </div>
+                                        {/* Scanning animation */}
+                                        {isScanning && (
+                                            <div
+                                                className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-red-500"
+                                                style={{
+                                                    animation: 'scan 2s linear infinite',
+                                                }}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                                 <button
@@ -255,9 +283,9 @@ const ScannerPage = () => {
                             <h3 className="font-medium text-gray-700 mb-2">Instructions:</h3>
                             <ul className="text-sm text-gray-600 space-y-2">
                                 <li>1. Click "Open Camera" to scan barcode</li>
-                                <li>2. Hold the barcode within the scanning area</li>
-                                <li>3. Or manually enter the patient ID</li>
-                                <li>4. Press Enter or click Search to view results</li>
+                                <li>2. Allow camera access when prompted</li>
+                                <li>3. Hold the barcode within the scanning area</li>
+                                <li>4. Or manually enter the patient ID</li>
                             </ul>
                         </div>
                     </div>

@@ -280,7 +280,7 @@ const PatientEdit = () => {
                             <div className="flex items-center">
                                 <FileText className="w-6 h-6 text-blue-600 mr-2" />
                                 <h3 className="text-lg font-semibold text-gray-700">
-                                    Pathology Analyses
+                                    Serology Analyses
                                 </h3>
                             </div>
                             <button
