@@ -77,39 +77,46 @@ const ScannerPage = () => {
         try {
             if (!codeReaderRef.current) {
                 codeReaderRef.current = new BrowserMultiFormatReader();
+                await codeReaderRef.current.listVideoInputDevices(); // Initialize available devices
             }
 
             // Wait for video to be ready
             await new Promise((resolve) => {
-                videoRef.current.onloadedmetadata = () => {
+                if (videoRef.current.readyState === 4) {
                     resolve();
-                };
+                } else {
+                    videoRef.current.onloadeddata = () => resolve();
+                }
             });
 
             setIsScanning(true);
 
-            codeReaderRef.current.decodeFromVideoElement(
-                videoRef.current,
-                (result) => {
+            // Start continuous scanning
+            const scanInterval = setInterval(async () => {
+
+
+                try {
+                    const result = await codeReaderRef.current.decodeOnce(videoRef.current);
                     if (result) {
                         // Barcode detected
                         const scannedValue = result.getText();
                         console.log('Barcode detected:', scannedValue);
-
-                        // Play success sound
+                        clearInterval(scanInterval);
                         playSuccessSound();
-
-                        // Navigate to results
                         handleSearch(scannedValue);
-                        stopCamera();
                     }
-                },
-                (error) => {
-                    if (error && !(error instanceof TypeError)) {
-                        console.error('Barcode scanning error:', error);
+                } catch (error) {
+                    // Ignore errors during scanning attempts
+                    if (!(error instanceof TypeError)) {
+                        console.log('Scanning...'); // Optional debug log
                     }
                 }
-            );
+            }, 100); // Scan every 100ms
+
+            // Cleanup function
+            return () => {
+                clearInterval(scanInterval);
+            };
         } catch (error) {
             console.error('Error initializing barcode detection:', error);
             setError('Failed to start barcode scanner. Please try again.');
