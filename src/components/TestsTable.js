@@ -1,19 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search,
     Edit,
     Trash,
-    QrCode,
+    ScanLine,
     X,
     Eye,
     Printer
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import JsBarcode from 'jsbarcode';
 import { getAllPatients, deletePatient } from '../services/api';
 import ViewModal from './VM';
 
+const Barcode = ({ value, width = 2, height = 100 }) => {
+    const barcodeRef = useRef();
 
+    useEffect(() => {
+        if (barcodeRef.current) {
+            JsBarcode(barcodeRef.current, value, {
+                width,
+                height,
+                fontSize: 16,
+                margin: 10,
+                format: "CODE128"
+            });
+        }
+    }, [value, width, height]);
+
+    return <svg ref={barcodeRef} />;
+};
 
 const PatientsTable = () => {
     const navigate = useNavigate();
@@ -21,12 +37,11 @@ const PatientsTable = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [error, setError] = useState(null);
-    const [showQR, setShowQR] = useState(null);
+    const [showBarcode, setShowBarcode] = useState(null);
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [patientToDelete, setPatientToDelete] = useState(null);
-
 
     useEffect(() => {
         fetchPatients();
@@ -45,6 +60,7 @@ const PatientsTable = () => {
             setLoading(false);
         }
     };
+
     const handleView = (patient) => {
         setSelectedPatient(patient);
         setShowViewModal(true);
@@ -81,38 +97,91 @@ const PatientsTable = () => {
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>Patient QR Code</title>
+                    <title>Patient Barcode</title>
                     <style>
-                        .qr-container {
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 0;
+                            padding: 20px;
+                        }
+                        .barcode-container {
                             text-align: center;
                             padding: 20px;
+                            border: 1px solid #ccc;
+                            border-radius: 8px;
+                            max-width: 500px;
+                            margin: 0 auto;
                         }
                         .patient-info {
                             margin-top: 20px;
-                            font-family: Arial, sans-serif;
+                            text-align: left;
+                            padding: 10px;
+                            background-color: #f8f9fa;
+                            border-radius: 4px;
+                        }
+                        .patient-info h2 {
+                            margin: 0 0 10px 0;
+                            color: #2d3748;
+                        }
+                        .patient-info p {
+                            margin: 5px 0;
+                            color: #4a5568;
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="qr-container">
-                        <div id="qr-code"></div>
+                    <div class="barcode-container">
+                        <div id="barcode"></div>
                         <div class="patient-info">
                             <h2>Patient ID: ${selectedPatient?.Id}</h2>
                             <p>Name: ${selectedPatient?.Name}</p>
                             <p>Unique Number: ${selectedPatient?.UniqNumber}</p>
+                            <p>Gender: ${selectedPatient?.Gender}</p>
+                            <p>Age: ${selectedPatient?.Age}</p>
+                            <p>Created: ${new Date(selectedPatient?.CreatedTime).toLocaleDateString()}</p>
                         </div>
                     </div>
                 </body>
             </html>
         `);
 
-        const qrCode = document.getElementById('qr-code-for-print').cloneNode(true);
-        printWindow.document.getElementById('qr-code').appendChild(qrCode);
+        const barcode = document.getElementById('barcode-for-print').cloneNode(true);
+        printWindow.document.getElementById('barcode').appendChild(barcode);
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
     };
 
+    const BarcodeModal = ({ patient, onClose }) => (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Patient Barcode</h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="flex justify-center" id="barcode-for-print">
+                    <Barcode value={patient.Id.toString()} />
+                </div>
+                <div className="mt-4 flex justify-between">
+                    <button
+                        onClick={handlePrint}
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                        <Printer className="w-4 h-4 mr-2" />
+                        Print Barcode
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 
     const DeleteConfirmationModal = ({ patient, onClose, onConfirm }) => (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -140,37 +209,6 @@ const PatientsTable = () => {
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                     >
                         Delete
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
-    const QRModal = ({ patient, onClose }) => (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">Patient QR Code</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-                <div className="flex justify-center" id="qr-code-for-print">
-                    <QRCodeSVG value={`${window.location.origin}/test-results/${patient.Id}`} size={200} />
-                </div>
-                <div className="mt-4 flex justify-between">
-                    <button
-                        onClick={handlePrint}
-                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                    >
-                        <Printer className="w-4 h-4 mr-2" />
-                        Print QR Code
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-                    >
-                        Close
                     </button>
                 </div>
             </div>
@@ -254,12 +292,12 @@ const PatientsTable = () => {
                                     <button
                                         onClick={() => {
                                             setSelectedPatient(patient);
-                                            setShowQR(true);
+                                            setShowBarcode(true);
                                         }}
                                         className="text-blue-600 hover:text-blue-800"
-                                        title="QR Code"
+                                        title="Generate Barcode"
                                     >
-                                        <QrCode className="w-5 h-5" />
+                                        <ScanLine className="w-5 h-5" />
                                     </button>
                                     <button
                                         onClick={() => handleView(patient)}
@@ -298,11 +336,11 @@ const PatientsTable = () => {
                 </div>
             )}
 
-            {showQR && selectedPatient && (
-                <QRModal
+            {showBarcode && selectedPatient && (
+                <BarcodeModal
                     patient={selectedPatient}
                     onClose={() => {
-                        setShowQR(false);
+                        setShowBarcode(false);
                         setSelectedPatient(null);
                     }}
                 />

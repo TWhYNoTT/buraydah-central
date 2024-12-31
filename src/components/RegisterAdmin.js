@@ -19,7 +19,8 @@ const RegisterAdmin = () => {
             await registerAdmin(formData);
             navigate('/');
         } catch (err) {
-            setError('Failed to register admin user');
+
+            setError(err.message);
         } finally {
             setLoading(false);
         }

@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import {
     X,
-    Tag,
-    Bookmark,
-    Activity,
-    AlertTriangle,
-    FileText,
     Printer,
     Maximize2,
     Minimize2
 } from 'lucide-react';
+import hospitalLogo from '../assets/bch.jpeg';
+import qlimgsrc from '../assets/ql.jpeg';
 
 const ViewModal = ({ patient, onClose }) => {
     const [isFullScreen, setIsFullScreen] = useState(false);
@@ -33,7 +30,6 @@ const ViewModal = ({ patient, onClose }) => {
     };
 
     const handlePrint = () => {
-
         const printWindow = window.open('', '_blank');
 
         printWindow.document.write(`
@@ -43,57 +39,73 @@ const ViewModal = ({ patient, onClose }) => {
                     <style>
                         body { 
                             font-family: Arial, sans-serif; 
-                            padding: 20px; 
-                            line-height: 1.5;
+                            padding: 10px; 
+                            line-height: 1.2;
+                            font-size: 10px;
                         }
                         .print-header {
                             text-align: center;
-                            margin-bottom: 20px;
-                            padding-bottom: 10px;
-                            border-bottom: 2px solid #000;
+                            margin-bottom: 10px;
+                            padding-bottom: 5px;
+                            border-bottom: 1px solid #000;
+                        }
+                        .print-header h1 {
+                            font-size: 16px;
+                            margin: 5px 0;
+                        }
+                        .print-header p {
+                            font-size: 9px;
+                            margin: 2px 0;
+                        }
+                        .logo-container {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-bottom: 5px;
+                        }
+                        .logo {
+                            height: 30px;
                         }
                         .patient-info {
-                            margin-bottom: 30px;
+                            
                         }
                         table {
                             width: 100%;
                             border-collapse: collapse;
-                            margin-bottom: 20px;
+                            margin-bottom: 5px;
+                            font-size: 9px;
                         }
                         th, td {
                             border: 1px solid #ddd;
-                            padding: 8px;
+                            padding: 4px;
                             text-align: left;
                         }
                         th {
                             background-color: #f8f9fa;
                             font-weight: bold;
                         }
-                        .category-header {
-                            background-color: #f0f7ff;
-                            font-weight: bold;
-                            padding: 10px;
-                        }
-                        .subcategory-header {
-                            background-color: #f8f0ff;
-                            padding: 8px;
-                            padding-left: 20px;
-                        }
-                        .result-row td {
-                            padding-left: 30px;
+                        h2 {
+                            font-size: 12px;
+                            margin: 5px 0;
                         }
                         @media print {
                             .no-print { display: none; }
                             table { page-break-inside: auto; }
                             tr { page-break-inside: avoid; page-break-after: auto; }
                             thead { display: table-header-group; }
+                            @page {
+                                margin: 0.5cm;
+                            }
                         }
                     </style>
                 </head>
                 <body>
                     <div class="print-header">
-                        <h1>Patient Medical Report</h1>
-                        <p>Generated: ${new Date().toLocaleString()}</p>
+                        <div class="logo-container">
+                            <img src="${hospitalLogo}" alt="Hospital Logo" class="logo" />
+                            <img src="${qlimgsrc}" alt="QL Logo" class="logo" />
+                        </div>
+                                                <p>Generated: ${new Date().toLocaleString()}</p>
                     </div>
 
                     <div class="patient-info">
@@ -120,53 +132,29 @@ const ViewModal = ({ patient, onClose }) => {
                     </div>
 
                     ${patient.PathologyAnalyses && patient.PathologyAnalyses.length > 0 ? `
-                        <h2>Pathology Analyses</h2>
-                        ${(() => {
-                    const groupedAnalyses = patient.PathologyAnalyses.reduce((acc, analysis) => {
-                        const parsedTest = parseTestName(analysis.AnalysisName);
-                        const categoryKey = parsedTest.category || 'Uncategorized';
-                        const subCategoryKey = parsedTest.subCategory || 'Uncategorized';
-                        const typeKey = parsedTest.name || 'Uncategorized';
-
-                        if (!acc[categoryKey]) acc[categoryKey] = {};
-                        if (!acc[categoryKey][subCategoryKey]) acc[categoryKey][subCategoryKey] = {};
-                        if (!acc[categoryKey][subCategoryKey][typeKey]) acc[categoryKey][subCategoryKey][typeKey] = [];
-
-                        acc[categoryKey][subCategoryKey][typeKey].push({
-                            ...parsedTest,
-                            result: analysis.Result,
-                            id: analysis.Id
-                        });
-
-                        return acc;
-                    }, {});
-
-                    return Object.entries(groupedAnalyses).map(([category, subCategories]) => `
-                                <div class="category-header">${category}</div>
-                                ${Object.entries(subCategories).map(([subCategory, types]) => `
-                                    <div class="subcategory-header">${subCategory}</div>
-                                    ${Object.entries(types).map(([type, analyses]) => `
-                                        <table>
-                                            <thead>
-                                                <tr>
-                                                    <th colspan="2">${type}</th>
-                                                </tr>
-                                                
-                                            </thead>
-                                            <tbody>
-                                                ${analyses.map(analysis => `
-                                                    <tr class="result-row">
-                                                        <td>${analysis.type || type}</td>
-                                                        <td>${analysis.result || 'Pending'}</td>
-                                                    </tr>
-                                                `).join('')}
-                                            </tbody>
-                                        </table>
-                                    `).join('')}
-                                `).join('')}
-                            `).join('')
-
-                })()}
+                        
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 60%;">Test Name</th>
+                                    <th style="width: 40%;">Result</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${patient.PathologyAnalyses.map(analysis => {
+            const parsedTest = parseTestName(analysis.AnalysisName);
+            const testName = [parsedTest.name, parsedTest.type]
+                .filter(Boolean)
+                .join(' - ');
+            return `
+                                        <tr>
+                                            <td>${testName}</td>
+                                            <td>${analysis.Result || 'Pending'}</td>
+                                        </tr>
+                                    `;
+        }).join('')}
+                            </tbody>
+                        </table>
                     ` : ''}
                 </body>
             </html>
@@ -179,8 +167,7 @@ const ViewModal = ({ patient, onClose }) => {
 
     return (
         <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${isFullScreen ? 'p-0' : 'p-4'}`}>
-            <div className={`bg-white rounded-lg shadow-xl transition-all duration-300 ${isFullScreen ? 'w-full h-full rounded-none' : 'max-w-4xl w-full max-h-[90vh]'
-                }`}>
+            <div className={`bg-white rounded-lg shadow-xl transition-all duration-300 ${isFullScreen ? 'w-full h-full rounded-none' : 'max-w-4xl w-full max-h-[90vh]'}`}>
                 {/* Header */}
                 <div className="sticky top-0 bg-white px-6 py-4 border-b flex justify-between items-center z-10">
                     <h3 className="text-2xl font-semibold text-gray-800">Patient Details</h3>
@@ -246,97 +233,32 @@ const ViewModal = ({ patient, onClose }) => {
                             </div>
                         </div>
 
-                        {/* Pathology Analyses */}
+                        {/* Test Results */}
                         {patient.PathologyAnalyses && patient.PathologyAnalyses.length > 0 && (
                             <div className="bg-white rounded-lg shadow-sm border p-6">
-                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Pathology Analyses</h4>
-                                <div className="space-y-6">
-                                    {(() => {
-                                        const groupedAnalyses = patient.PathologyAnalyses.reduce((acc, analysis) => {
+                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Test Results</h4>
+                                <table className="w-full border-collapse">
+                                    <thead>
+                                        <tr>
+                                            <th className="p-2 border text-left bg-gray-50">Test Name</th>
+                                            <th className="p-2 border text-left bg-gray-50">Result</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {patient.PathologyAnalyses.map(analysis => {
                                             const parsedTest = parseTestName(analysis.AnalysisName);
-                                            const categoryKey = parsedTest.category || 'Uncategorized';
-                                            const subCategoryKey = parsedTest.subCategory || 'Uncategorized';
-                                            const typeKey = parsedTest.name || 'Uncategorized';
-
-                                            if (!acc[categoryKey]) acc[categoryKey] = {};
-                                            if (!acc[categoryKey][subCategoryKey]) acc[categoryKey][subCategoryKey] = {};
-                                            if (!acc[categoryKey][subCategoryKey][typeKey]) acc[categoryKey][subCategoryKey][typeKey] = [];
-
-                                            acc[categoryKey][subCategoryKey][typeKey].push({
-                                                ...parsedTest,
-                                                result: analysis.Result,
-                                                id: analysis.Id
-                                            });
-
-                                            return acc;
-                                        }, {});
-
-                                        return Object.entries(groupedAnalyses).map(([category, subCategories]) => (
-                                            <div key={category} className="bg-gray-50 rounded-lg p-4">
-                                                <div className="flex items-center mb-3">
-                                                    <Tag className="w-5 h-5 text-blue-600 mr-2" />
-                                                    <span className="text-lg font-medium text-blue-800">{category}</span>
-                                                </div>
-
-                                                {Object.entries(subCategories).map(([subCategory, types]) => (
-                                                    <div key={subCategory} className="ml-4 mt-3">
-                                                        <div className="flex items-center mb-2">
-                                                            <Bookmark className="w-4 h-4 text-purple-600 mr-2" />
-                                                            <span className="text-md font-medium text-purple-800">
-                                                                {subCategory}
-                                                            </span>
-                                                        </div>
-
-                                                        {Object.entries(types).map(([type, analyses]) => (
-                                                            <div key={type} className="ml-4 mt-2">
-                                                                <div className="flex items-center mb-2">
-                                                                    <Activity className="w-4 h-4 text-green-600 mr-2" />
-                                                                    <span className="text-md font-medium text-green-800">
-                                                                        {type}
-                                                                    </span>
-                                                                </div>
-
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 ml-4">
-                                                                    {analyses.map((analysis) => (
-                                                                        <div
-                                                                            key={analysis.id}
-                                                                            className="bg-white rounded-lg p-4 shadow-sm border transition-all hover:shadow-md"
-                                                                        >
-                                                                            <div className="flex justify-between items-start mb-2">
-                                                                                <div className="flex items-center">
-                                                                                    <FileText className="w-4 h-4 text-gray-600 mr-2" />
-                                                                                    <span className="font-medium text-gray-900">
-                                                                                        {analysis.type || type}
-                                                                                    </span>
-                                                                                </div>
-                                                                            </div>
-
-                                                                            {analysis.normalRange && (
-                                                                                <div className="flex items-center mb-2">
-                                                                                    <AlertTriangle className="w-4 h-4 text-yellow-600 mr-1" />
-                                                                                    <span className="text-sm text-yellow-800">
-                                                                                        Range: {analysis.normalRange}
-                                                                                    </span>
-                                                                                </div>
-                                                                            )}
-
-                                                                            <div className="mt-2 p-2 bg-gray-50 rounded">
-                                                                                <span className="font-medium text-gray-700">Result: </span>
-                                                                                <span className="text-gray-900">
-                                                                                    {analysis.result || 'Pending'}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ));
-                                    })()}
-                                </div>
+                                            const testName = [parsedTest.name, parsedTest.type]
+                                                .filter(Boolean)
+                                                .join(' - ');
+                                            return (
+                                                <tr key={analysis.Id}>
+                                                    <td className="p-2 border">{testName}</td>
+                                                    <td className="p-2 border">{analysis.Result || 'Pending'}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>

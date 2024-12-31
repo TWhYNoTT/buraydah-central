@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import React, { useState, useRef, useEffect } from 'react';
+import JsBarcode from 'jsbarcode';
 import { UserPlus, Save, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { testCategories } from '../data/testData';
 import { savePatient, savePathologyAnalysis } from '../services/api';
@@ -9,18 +9,45 @@ import qlimgsrc from '../assets/ql.jpeg';
 
 
 
-const PrintableQRCode = ({ qrCode, patientData, PID }) => {
+
+
+
+
+
+
+
+const Barcode = ({ value, width = 1.5, height = 80, fontSize = 14 }) => {
+    const barcodeRef = useRef();
+
+    useEffect(() => {
+        if (barcodeRef.current) {
+            try {
+                JsBarcode(barcodeRef.current, value, {
+                    width,
+                    height,
+                    fontSize,
+                    margin: 10,
+                    format: "CODE128",
+                    background: "#FFFFFF",
+                });
+            } catch (error) {
+                console.error('Error generating barcode:', error);
+            }
+        }
+    }, [value, width, height, fontSize]);
+
+    return <svg ref={barcodeRef} />;
+};
+
+const PrintableBarcode = ({ barcodeValue, patientData, PID }) => {
     return (
         <div id="printable-section">
             <style>
                 {`
                     @media print {
-                        /* Hide all content by default */
                         body * {
                             visibility: hidden;
                         }
-
-                        /* Reset page properties */
                         html, body {
                             height: 500px !important;
                             overflow: hidden !important;
@@ -28,13 +55,10 @@ const PrintableQRCode = ({ qrCode, patientData, PID }) => {
                             print-color-adjust: exact;
                             background: #fff;
                         }
-
-                        /* Show only printable content */
                         #printable-section,
                         #printable-section * {
                             visibility: visible;
                         }
-
                         #printable-section {
                             position: absolute;
                             left: 0;
@@ -45,14 +69,11 @@ const PrintableQRCode = ({ qrCode, patientData, PID }) => {
                             page-break-after: avoid;
                             background: #fff;
                         }
-
-                        /* Page settings */
                         @page {
                             size: A4;
                             margin: 0;
                         }
                     }
-
                     @media screen {
                         #printable-section {
                             display: none;
@@ -61,7 +82,6 @@ const PrintableQRCode = ({ qrCode, patientData, PID }) => {
                 `}
             </style>
 
-            {/* Content Container */}
             <div className="w-full max-w-2xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
@@ -77,7 +97,7 @@ const PrintableQRCode = ({ qrCode, patientData, PID }) => {
 
                 {/* Patient Info */}
                 <div className="text-center mb-8">
-                    <h2 className="text-lg font-semibold text-gray-700 mb-4">Patient Test Results QR Code</h2>
+                    <h2 className="text-lg font-semibold text-gray-700 mb-4">Patient Test Results Barcode</h2>
                     <div className="space-y-2">
                         <p className="text-gray-600">Patient ID: {PID}</p>
                         <p className="text-gray-600">Patient Name: {patientData.name}</p>
@@ -85,13 +105,18 @@ const PrintableQRCode = ({ qrCode, patientData, PID }) => {
                     </div>
                 </div>
 
-                {/* QR Code */}
+                {/* Barcode */}
                 <div className="flex flex-col items-center mb-8">
                     <div className="bg-white p-4 border rounded-lg mb-4">
-                        <QRCodeSVG value={qrCode} size={200} />
+                        <Barcode
+                            value={barcodeValue}
+                            width={1.5}
+                            height={80}
+                            fontSize={14}
+                        />
                     </div>
                     <p className="text-sm text-gray-500 text-center">
-                        Scan this QR code to access and update test results for this patient.
+                        Scan this barcode to access and update test results for this patient.
                     </p>
                 </div>
 
@@ -109,9 +134,7 @@ const PrintableQRCode = ({ qrCode, patientData, PID }) => {
     );
 };
 
-
-// Add this component below the QRCode display in the main component's step 2 section
-const QRCodeDisplay = ({ qrCode, onPrint, onNext, onRegisterAnother }) => {
+const BarcodeDisplay = ({ barcodeValue, onPrint, onNext, onRegisterAnother }) => {
     return (
         <div className="text-center p-4 print:hidden">
             <div className="mb-6">
@@ -120,14 +143,18 @@ const QRCodeDisplay = ({ qrCode, onPrint, onNext, onRegisterAnother }) => {
                     Patient Registration Complete
                 </h2>
                 <p className="text-sm md:text-base text-gray-600 mt-2">
-                    Scan this QR code to access the test results form
+                    Scan this barcode to access the test results form
                 </p>
             </div>
 
             <div className="flex justify-center mb-6 md:mb-8">
                 <div className="p-3 md:p-4 bg-white border rounded-lg shadow-sm">
-                    <QRCodeSVG value={qrCode} size={160} className="md:hidden" />
-                    <QRCodeSVG value={qrCode} size={200} className="hidden md:block" />
+                    <Barcode
+                        value={barcodeValue}
+                        width={1.5}
+                        height={80}
+                        fontSize={14}
+                    />
                 </div>
             </div>
 
@@ -135,7 +162,7 @@ const QRCodeDisplay = ({ qrCode, onPrint, onNext, onRegisterAnother }) => {
                 <div className="flex items-start">
                     <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
                     <div className="text-sm text-blue-700">
-                        Scan this QR code to open the results form. The form will allow you to enter test results for this patient.
+                        Scan this barcode to open the results form. The form will allow you to enter test results for this patient.
                     </div>
                 </div>
             </div>
@@ -157,7 +184,7 @@ const QRCodeDisplay = ({ qrCode, onPrint, onNext, onRegisterAnother }) => {
                     onClick={onPrint}
                     className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                    <span className="mr-2">🖨️</span> Print QR Code
+                    <span className="mr-2">🖨️</span> Print Barcode
                 </button>
             </div>
         </div>
@@ -170,7 +197,7 @@ const PatientRegistration = () => {
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
     const [error, setError] = useState(null);
-    const [qrCode, setQrCode] = useState('');
+
     const [PID, setPID] = useState('');
 
 
@@ -259,9 +286,9 @@ const PatientRegistration = () => {
             const savePromises = selectedTestsToSave.map(test => savePathologyAnalysis(test));
             await Promise.all(savePromises);
 
-            // Generate QR code with the patient ID
-            const resultFormUrl = `${window.location.origin}/test-results/${patientId}`;
-            setQrCode(resultFormUrl);
+
+
+
             setPID(patientId);
             setStep(2);
         } catch (error) {
@@ -501,14 +528,11 @@ const PatientRegistration = () => {
     return (
         <>
             {step === 2 && (
-                <>
-                    <PrintableQRCode
-                        qrCode={qrCode}
-                        patientData={patientData}
-                        PID={PID}
-                    />
-
-                </>
+                <PrintableBarcode
+                    barcodeValue={PID}
+                    patientData={patientData}
+                    PID={PID}
+                />
             )}
 
             <div className="min-h-screen bg-gray-50 py-4 px-2 md:py-8 md:px-4 print:bg-white print:p-0">
@@ -639,8 +663,8 @@ const PatientRegistration = () => {
                             </form>
                         </div>
                     ) : (
-                        <QRCodeDisplay
-                            qrCode={qrCode}
+                        <BarcodeDisplay
+                            barcodeValue={PID}
                             onPrint={handlePrint}
                             onNext={handleNextStep}
                             onRegisterAnother={() => setStep(1)}

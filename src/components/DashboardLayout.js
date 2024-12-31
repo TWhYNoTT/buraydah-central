@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
     Menu,
     LayoutDashboard,
@@ -8,10 +8,10 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    ScanLine
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-
 import hospitalLogo from '../assets/bch.jpeg';
 
 const DashboardLayout = ({ children }) => {
@@ -24,6 +24,7 @@ const DashboardLayout = ({ children }) => {
     const menuItems = [
         { path: '/', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/PatientRegistration', label: 'Add New Patient', icon: FileText },
+        { path: '/scanner', label: 'Scan Results', icon: ScanLine },
         { path: '/register', label: 'Register New Admin', icon: Users },
     ];
 
@@ -38,8 +39,7 @@ const DashboardLayout = ({ children }) => {
     return (
         <div className="min-h-screen bg-gray-100 flex">
             {/* Desktop Sidebar */}
-            <div className={`hidden md:block bg-white shadow-lg transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'
-                }`}>
+            <div className={`hidden md:block bg-white shadow-lg transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
                 <div className="h-full flex flex-col">
                     {/* Logo/Header */}
                     <div className="h-16 flex items-center justify-between px-4 border-b">
@@ -162,7 +162,7 @@ const DashboardLayout = ({ children }) => {
 
                 {/* Main Content Area */}
                 <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
-                    {children}
+                    <Outlet />
                 </main>
             </div>
         </div>

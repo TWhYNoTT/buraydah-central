@@ -1,31 +1,17 @@
-// src/components/TestResultsForm.js
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-    Save,
-    AlertCircle,
-    Tag,
-    Bookmark,
-    Activity,
-    AlertTriangle,
-    FileText
-} from 'lucide-react';
+import { Save, AlertCircle } from 'lucide-react';
 import { getPatientData, updatePathologyAnalysis } from '../services/api';
 
 const parseTestName = (fullName) => {
     const parts = {};
-
-    const categoryMatch = fullName.match(/\[CAT\](.*?)(?=\[SUB\])/);
-    const subCategoryMatch = fullName.match(/\[SUB\](.*?)(?=\[NAME\])/);
     const nameMatch = fullName.match(/\[NAME\](.*?)(?=\[(?:TYPE|RANGE)\])/);
     const typeMatch = fullName.match(/\[TYPE\](.*?)(?=\[RANGE\])/);
     const rangeMatch = fullName.match(/\[RANGE\](.*?)$/);
 
-    parts.category = categoryMatch ? categoryMatch[1] : '';
-    parts.subCategory = subCategoryMatch ? subCategoryMatch[1] : '';
-    parts.name = nameMatch ? nameMatch[1] : '';
-    parts.type = typeMatch ? typeMatch[1] : '';
-    parts.normalRange = rangeMatch ? rangeMatch[1] : '';
+    parts.name = nameMatch ? nameMatch[1].trim() : '';
+    parts.type = typeMatch ? typeMatch[1].trim() : '';
+    parts.normalRange = rangeMatch ? rangeMatch[1].trim() : '';
 
     return parts;
 };
@@ -41,7 +27,6 @@ const TestResultsForm = () => {
         const fetchPatientData = async () => {
             try {
                 const data = await getPatientData(patientId);
-                // Parse test names when loading data
                 const enhancedTests = data.PathologyAnalyses.map(test => ({
                     ...test,
                     ...parseTestName(test.AnalysisName)
@@ -64,9 +49,7 @@ const TestResultsForm = () => {
         e.preventDefault();
         try {
             const updatePromises = Object.entries(results).map(([testId, result]) =>
-                updatePathologyAnalysis(testId, {
-                    result: result
-                })
+                updatePathologyAnalysis(testId, { result })
             );
 
             await Promise.all(updatePromises);
@@ -74,6 +57,37 @@ const TestResultsForm = () => {
         } catch (error) {
             setError('Failed to save results. Please try again.');
         }
+    };
+
+    const renderInput = (test) => {
+        if (test.normalRange?.toLowerCase() === 'negative') {
+            return (
+                <select
+                    className="w-full px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => setResults(prev => ({
+                        ...prev,
+                        [test.Id]: e.target.value
+                    }))}
+                    value={results[test.Id] || test.Result || ''}
+                >
+                    <option value="">Select result</option>
+                    <option value="Negative">Negative</option>
+                    <option value="Positive">Positive</option>
+                </select>
+            );
+        }
+
+        return (
+            <input
+                type="text"
+                className="w-full px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => setResults(prev => ({
+                    ...prev,
+                    [test.Id]: e.target.value
+                }))}
+                defaultValue={test.Result || ''}
+            />
+        );
     };
 
     if (loading) return (
@@ -92,81 +106,43 @@ const TestResultsForm = () => {
     );
 
     return (
-        <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6 my-8">
-            <div className="mb-8 border-b pb-4">
-                <h2 className="text-xl font-bold text-gray-800">Test Results Form</h2>
-                <p className="text-gray-600">
-                    Patient: {patientData.Name} (ID: {patientData.UniqNumber})
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                    Age: {patientData.Age} | Gender: {patientData.Gender}
-                </p>
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6 my-8">
+            {/* Basic Patient Info */}
+            <div className="mb-6">
+                <h2 className="text-xl font-semibold text-gray-800">Patient: {patientData.Name}</h2>
+                <p className="text-sm text-gray-500">ID: {patientData.UniqNumber} | Age: {patientData.Age} | Gender: {patientData.Gender}</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {patientData.PathologyAnalyses.map((test) => (
-                    <div key={test.Id} className="bg-gray-50 rounded-lg p-4">
-                        <div className="space-y-3">
-                            {/* Test Name */}
-                            <div className="font-medium text-lg text-gray-900">
-                                <div className="inline-flex items-center px-3 py-2 rounded-md text-base font-medium bg-gray-200 text-gray-900 mr-2">
-                                    <FileText className="w-5 h-5 mr-2" />
-                                    {test.name}
-                                </div>
-                                {test.type && (
-                                    <div className="inline-flex items-center px-3 py-2 rounded-md text-base font-medium bg-green-100 text-green-800">
-                                        <Activity className="w-4 h-4 mr-1" />
-                                        {test.type}
-                                    </div>
-                                )}
-                            </div>
+            <form onSubmit={handleSubmit}>
+                <table className="w-full border-collapse mb-6">
+                    <thead>
+                        <tr>
+                            <th className="text-left p-3 bg-gray-50 border">Test Name</th>
+                            <th className="text-left p-3 bg-gray-50 border">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {patientData.PathologyAnalyses.map((test) => {
+                            const testName = [test.name, test.type]
+                                .filter(Boolean)
+                                .join(' - ');
 
-                            {/* Categories and Tags */}
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {test.category && (
-                                    <div className="inline-flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium bg-blue-100 text-blue-800">
-                                        <Tag className="w-4 h-4 mr-1" />
-                                        {test.category}
-                                    </div>
-                                )}
-                                {test.subCategory && (
-                                    <div className="inline-flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium bg-purple-100 text-purple-800">
-                                        <Bookmark className="w-4 h-4 mr-1" />
-                                        {test.subCategory}
-                                    </div>
-                                )}
+                            return (
+                                <tr key={test.Id}>
+                                    <td className="p-3 border">{testName}</td>
+                                    <td className="p-3 border">
+                                        {renderInput(test)}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
 
-                                {test.normalRange && (
-                                    <div className="inline-flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium bg-yellow-100 text-yellow-800">
-                                        <AlertTriangle className="w-4 h-4 mr-1" />
-                                        Range: {test.normalRange}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Result Input */}
-                            <div className="mt-4">
-                                <label className="block text-sm font-medium text-gray-700">
-                                    Result
-                                </label>
-                                <input
-                                    type="text"
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                    onChange={(e) => setResults(prev => ({
-                                        ...prev,
-                                        [test.Id]: e.target.value
-                                    }))}
-                                    defaultValue={test.Result || ''}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                ))}
-
-                <div className="flex justify-end pt-6">
+                <div className="flex justify-end">
                     <button
                         type="submit"
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                         <Save className="w-4 h-4 mr-2" />
                         Save Results
