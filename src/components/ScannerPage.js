@@ -14,6 +14,7 @@ const ScannerPage = () => {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const codeReaderRef = useRef(null);
+    const isMountedRef = useRef(false);
 
     // Handle manual input Enter key
     const handleKeyDown = (e) => {
@@ -38,68 +39,65 @@ const ScannerPage = () => {
         }
     };
 
-    // Start camera
     const startCamera = async () => {
         try {
-            const constraints = {
-                video: { facingMode: "environment" }
-            };
+            setError(''); // Clear any previous errors
 
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            // Try to get the back camera first
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { exact: "environment" } }
+                });
+            } catch (err) {
+                // If back camera fails, try any camera
+                console.log('Falling back to any available camera');
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: true
+                });
+            }
 
-            if (videoRef.current) {
+            // Check if component is still mounted
+            if (isMountedRef.current && videoRef.current) {
                 videoRef.current.srcObject = stream;
                 streamRef.current = stream;
+
+                // Wait for video to be ready
+                await new Promise((resolve) => {
+                    videoRef.current.onloadedmetadata = () => {
+                        resolve();
+                    };
+                });
+
                 setIsCameraOpen(true);
-                // Start barcode detection after camera is ready
                 await initBarcodeDetection();
+            } else {
+                // Clean up stream if component unmounted
+                stream.getTracks().forEach(track => track.stop());
             }
         } catch (err) {
             console.error('Error accessing camera:', err);
-            // Try fallback to any camera
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    streamRef.current = stream;
-                    setIsCameraOpen(true);
-                    await initBarcodeDetection();
-                }
-            } catch (fallbackErr) {
-                console.error('Fallback camera error:', fallbackErr);
-                setError('Unable to access camera. Please check permissions and try again.');
-            }
+            setError('Unable to access camera. Please ensure you have granted camera permissions and are using HTTPS.');
         }
     };
 
-    // Initialize barcode detection
     const initBarcodeDetection = async () => {
+        if (!videoRef.current || !isMountedRef.current) return;
+
         try {
             if (!codeReaderRef.current) {
                 codeReaderRef.current = new BrowserMultiFormatReader();
             }
 
-            // Wait for video to be ready
-            await new Promise((resolve) => {
-                videoRef.current.onloadedmetadata = () => {
-                    resolve();
-                };
-            });
-
             setIsScanning(true);
 
-            codeReaderRef.current.decodeFromVideoElement(
+            await codeReaderRef.current.decodeFromVideoElement(
                 videoRef.current,
                 (result) => {
-                    if (result) {
-                        // Barcode detected
+                    if (result && isMountedRef.current) {
                         const scannedValue = result.getText();
                         console.log('Barcode detected:', scannedValue);
-
-                        // Play success sound
                         playSuccessSound();
-
-                        // Navigate to results
                         handleSearch(scannedValue);
                         stopCamera();
                     }
@@ -116,12 +114,16 @@ const ScannerPage = () => {
         }
     };
 
+
     const playSuccessSound = () => {
         const audio = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAA5TEFNRTMuOTlyAc0AAAAAAAAAABSAJAOkQgAAgAAABoZuZBwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQxAAAElTlJnQ3gAJ6vG0DGjQAQAFASA0GmRAEAIAgBgGATB8HwfB8Xg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+D4Pg+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
         audio.play().catch(e => console.log('Audio play error:', e));
     };
 
+    // 5. Update the stopCamera function
     const stopCamera = () => {
+        if (!isMountedRef.current) return;
+
         setIsCameraOpen(false);
         setIsScanning(false);
 
@@ -140,18 +142,32 @@ const ScannerPage = () => {
         }
     };
 
-    // Toggle camera
+    // Add this function and call it before starting the camera
+    const checkCameraSupport = () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setError('Camera not supported on this device or browser.');
+            return false;
+        }
+        return true;
+    };
+
+    // Update handleCameraToggle
     const handleCameraToggle = async () => {
         if (isCameraOpen) {
             stopCamera();
         } else {
-            await startCamera();
+            if (checkCameraSupport()) {
+                await startCamera();
+            }
         }
     };
 
-    // Cleanup on unmount
     useEffect(() => {
+        isMountedRef.current = true;
+
+        // Cleanup function
         return () => {
+            isMountedRef.current = false;
             stopCamera();
         };
     }, []);
@@ -176,18 +192,25 @@ const ScannerPage = () => {
                 {/* Scanner Section */}
                 <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
                     <div className="flex flex-col items-center max-w-md mx-auto">
-                        <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
-                            <ScanLine className="w-10 h-10 text-blue-500" />
-                        </div>
+                        {!isCameraOpen && (
 
-                        <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                            Scan Patient Barcode
-                        </h2>
-                        <p className="text-gray-600 text-center mb-8">
-                            Use camera to scan barcode or enter ID manually
-                        </p>
+                            <div>
 
-                        {/* Camerra View */}
+                                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                                    <ScanLine className="w-10 h-10 text-blue-500" />
+                                </div>
+
+                                <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                                    Scan Patient Barcode
+                                </h2>
+                                <p className="text-gray-600 text-center mb-8">
+                                    Use camera to scan barcode or enter ID manually
+                                </p>
+                            </div>
+                        )}
+
+
+
                         {isCameraOpen && (
                             <div className="w-full mb-6">
                                 <div className="relative aspect-video rounded-lg overflow-hidden border-2 border-blue-500">
@@ -198,6 +221,10 @@ const ScannerPage = () => {
                                         autoPlay
                                         playsInline
                                         muted
+                                        onError={(e) => {
+                                            console.error('Video error:', e);
+                                            setError('Error starting video stream');
+                                        }}
                                     />
 
                                     {/* Scanning Overlay */}
